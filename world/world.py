@@ -1,3 +1,4 @@
+from .user_simulator import UserSimulator
 from simulation.service import Service
 from .entities import User, Movie, Rating, UserState, MovieState
 

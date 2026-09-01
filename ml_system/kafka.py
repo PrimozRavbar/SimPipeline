@@ -1,4 +1,4 @@
-from .service import Service
+from simulation.service import Service
 
 class Kafka(Service):
 

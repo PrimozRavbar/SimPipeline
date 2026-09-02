@@ -1,3 +1,5 @@
+import random
+
 from .clock import Clock
 from .service import Service
 

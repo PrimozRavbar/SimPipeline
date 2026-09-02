@@ -8,6 +8,10 @@ from abc import ABC, abstractmethod
 import torch
 import torch.nn as nn
 
+from world.external_data_loader import GENRE_NAMES
+
+genre_names = GENRE_NAMES
+
 
 class UserTower(ABC):
 

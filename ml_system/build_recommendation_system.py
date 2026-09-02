@@ -5,6 +5,7 @@ from ml_system.kafka import Kafka
 from ml_system.redis import Redis
 from ml_system.flink import Flink
 from ml_system.datalake import DataLake
+from ml_system.spark import Spark
 from ml_system.model_server import ModelServer
 from ml_system.two_tower import (
     TwoTowerRetrieval,
@@ -81,6 +82,7 @@ def build_recommendation_system(
 
     sim.register(world)
     sim.register(Kafka())
+    sim.register(Spark())
     sim.register(Flink())
     sim.register(redis)
     sim.register(feature_store)
@@ -126,5 +128,6 @@ def build_recommendation_system(
         "retriever": retriever,
         "model_server": model_server,
         "offline_pipeline": offline_pipeline,
-        "feature_store": feature_store
+        "feature_store": feature_store,
+        "spark": sim.get_service("Spark")
     }

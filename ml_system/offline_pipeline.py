@@ -64,6 +64,9 @@ class OfflineFeaturePipeline:
 
     def process(self, events):
 
+        self.rating_features = RatingFeatureComputer()
+        self.item_rating_features = ItemRatingFeatureComputer()
+
         user_features = {}
         item_features = {}
 

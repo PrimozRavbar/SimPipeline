@@ -114,8 +114,7 @@ class UserSimulator:
 
         user_state = self.world.user_states[user.user_id]
 
-        best_movie = None
-        best_score = -1
+        scores = []
 
         for movie_id in movie_ids:
 
@@ -126,17 +125,34 @@ class UserSimulator:
                 for genre in movie.genres
             )
 
-            if score > best_score:
-                best_score = score
-                best_movie = movie_id
+            scores.append(max(score, 0))
 
-        print(f"User {user.user_id} clicked {best_movie} (score={best_score})")
+        total_score = sum(scores)
+
+        if total_score > 0:
+            probabilities = [
+                score / total_score
+                for score in scores
+            ]
+        else:
+            probabilities = [
+                1.0 / len(movie_ids)
+                for _ in movie_ids
+            ]
+
+        selected_movie = random.choices(
+            movie_ids,
+            weights=probabilities,
+            k=1
+        )[0]
+
+        print(f"User {user.user_id} clicked {selected_movie}")
 
         return RecommendationClickedEvent(
             timestamp=sim.clock.now,
             user_id=user.user_id,
             recommendation_id=recommendation_id,
-            movie_id=best_movie
+            movie_id=selected_movie
         )
 
 

@@ -95,6 +95,8 @@ class TrainingDatasetGenerator:
 
         self.add_negative_samples()
 
+        random.shuffle(self.interactions)
+
         dataset = []
 
         for interaction in self.interactions:
@@ -116,8 +118,5 @@ class TrainingDatasetGenerator:
 
         self.interactions = []
         self.user_movies = {}
-
-        return dataset
-
 
         return dataset

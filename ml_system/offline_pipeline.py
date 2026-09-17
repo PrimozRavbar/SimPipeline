@@ -31,8 +31,11 @@ class OfflinePipeline:
 
         self.feature_pipeline.process(events)
 
-        for event in events:
-            self.dataset_generator.add_event(event)
+        for event_order, event in enumerate(events):
+            self.dataset_generator.add_event(
+                event,
+                event_order
+            )
 
         training_data = (
             self.dataset_generator.build()
@@ -74,8 +77,25 @@ class OfflineFeaturePipeline:
         user_features = {}
         item_features = {}
 
+        # Initialize a time-zero baseline for every movie.
+        for movie_id, movie in self.movie_objects.items():
+            item_features[movie_id] = {
+                "movie_id": movie_id,
+                "genres": movie.genres,
+                "average_rating": 0,
+                "popularity": 0,
+                "interactions": 0
+            }
 
-        for event in events:
+            self.feature_store.write_item_features(
+                movie_id,
+                deepcopy(item_features[movie_id]),
+                timestamp=0,
+                event_order=-1
+            )
+
+
+        for event_order, event in enumerate(events):
 
             user_id = event.user_id
 
@@ -111,7 +131,8 @@ class OfflineFeaturePipeline:
             self.feature_store.write_user_features(
                 user_id,
                 user_snapshot,
-                timestamp=event.timestamp
+                timestamp=event.timestamp,
+                event_order=event_order
             )
 
 
@@ -138,7 +159,8 @@ class OfflineFeaturePipeline:
                 self.feature_store.write_item_features(
                     movie_id,
                     deepcopy(item),
-                    timestamp=event.timestamp
+                    timestamp=event.timestamp,
+                    event_order=event_order
                 )
 
 

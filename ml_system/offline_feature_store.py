@@ -16,29 +16,45 @@ class OfflineFeatureStore(Service):
         self.item_feature_history = {}
 
 
-    def write_user_features(self, user_id, features, timestamp=None):
+    def write_user_features(
+        self,
+        user_id,
+        features,
+        timestamp=None,
+        event_order=None
+    ):
 
         self.user_features[user_id] = features
 
         if timestamp is not None:
+            key = (timestamp, event_order)
+
             self.user_feature_history.setdefault(
                 user_id,
                 []
             ).append(
-                (timestamp, deepcopy(features))
+                (key, deepcopy(features))
             )
 
 
-    def write_item_features(self, movie_id, features, timestamp=None):
+    def write_item_features(
+        self,
+        movie_id,
+        features,
+        timestamp=None,
+        event_order=None
+    ):
 
         self.item_features[movie_id] = features
 
         if timestamp is not None:
+            key = (timestamp, event_order)
+
             self.item_feature_history.setdefault(
                 movie_id,
                 []
             ).append(
-                (timestamp, deepcopy(features))
+                (key, deepcopy(features))
             )
 
 
@@ -52,17 +68,24 @@ class OfflineFeatureStore(Service):
         return self.item_features.get(movie_id)
 
 
-    def get_user_features_as_of(self, user_id, timestamp):
+    def get_user_features_as_of(
+        self,
+        user_id,
+        timestamp,
+        event_order=None
+    ):
 
         history = self.user_feature_history.get(
             user_id,
             []
         )
 
+        target = (timestamp, event_order)
+
         candidates = [
             features
-            for snapshot_time, features in history
-            if snapshot_time <= timestamp
+            for snapshot_key, features in history
+            if snapshot_key <= target
         ]
 
         if not candidates:
@@ -71,17 +94,24 @@ class OfflineFeatureStore(Service):
         return candidates[-1]
 
 
-    def get_item_features_as_of(self, movie_id, timestamp):
+    def get_item_features_as_of(
+        self,
+        movie_id,
+        timestamp,
+        event_order=None
+    ):
 
         history = self.item_feature_history.get(
             movie_id,
             []
         )
 
+        target = (timestamp, event_order)
+
         candidates = [
             features
-            for snapshot_time, features in history
-            if snapshot_time <= timestamp
+            for snapshot_key, features in history
+            if snapshot_key <= target
         ]
 
         if not candidates:

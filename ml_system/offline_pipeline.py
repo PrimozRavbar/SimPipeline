@@ -1,3 +1,5 @@
+from copy import deepcopy
+
 from simulation.events import (
     RatingEvent,
     WatchEvent,
@@ -23,6 +25,7 @@ class OfflinePipeline:
         self.dataset_generator = dataset_generator
         self.trainer = trainer
         self.embedding_generator = embedding_generator
+
 
     def run(self, events):
 
@@ -55,6 +58,7 @@ class OfflinePipeline:
 class OfflineFeaturePipeline:
 
     def __init__(self, movie_objects, feature_store):
+
         self.movie_objects = movie_objects
         self.feature_store = feature_store
 
@@ -70,10 +74,14 @@ class OfflineFeaturePipeline:
         user_features = {}
         item_features = {}
 
+
         for event in events:
 
-            if event.user_id not in user_features:
-                user_features[event.user_id] = {
+            user_id = event.user_id
+
+            if user_id not in user_features:
+
+                user_features[user_id] = {
                     "genre_preferences": {},
                     "average_rating": 0,
                     "activity_level": 0,
@@ -82,27 +90,40 @@ class OfflineFeaturePipeline:
                     "user_click_counts": 0
                 }
 
-            user = user_features[event.user_id]
+
+            user = user_features[user_id]
 
 
-            if isinstance(event, RatingEvent):
+            # Snapshot BEFORE processing the current event.
+            user_snapshot = deepcopy(user)
 
-                average_rating = self.rating_features.update(
-                    event.user_id,
-                    event.rating
-                )
+            total = sum(
+                user_snapshot["genre_preferences"].values()
+            )
 
-                user["average_rating"] = average_rating
+            if total > 0:
+                user_snapshot["genre_preferences"] = {
+                    genre: count / total
+                    for genre, count
+                    in user_snapshot["genre_preferences"].items()
+                }
+
+            self.feature_store.write_user_features(
+                user_id,
+                user_snapshot,
+                timestamp=event.timestamp
+            )
 
 
             if hasattr(event, "movie_id"):
 
-                movie = self.movie_objects[event.movie_id]
+                movie_id = event.movie_id
+                movie = self.movie_objects[movie_id]
 
-                if event.movie_id not in item_features:
+                if movie_id not in item_features:
 
-                    item_features[event.movie_id] = {
-                        "movie_id": event.movie_id,
+                    item_features[movie_id] = {
+                        "movie_id": movie_id,
                         "genres": movie.genres,
                         "average_rating": 0,
                         "popularity": 0,
@@ -110,8 +131,18 @@ class OfflineFeaturePipeline:
                     }
 
 
-                item = item_features[event.movie_id]
+                item = item_features[movie_id]
 
+
+                # Snapshot item BEFORE processing the current event.
+                self.feature_store.write_item_features(
+                    movie_id,
+                    deepcopy(item),
+                    timestamp=event.timestamp
+                )
+
+
+                # Process the current event.
                 item["interactions"] += 1
 
                 user["interactions"] += 1
@@ -124,10 +155,13 @@ class OfflineFeaturePipeline:
 
                     item["popularity"] += 1
 
-
                     for genre in movie.genres:
+
                         user["genre_preferences"][genre] = (
-                            user["genre_preferences"].get(genre, 0) + 1
+                            user["genre_preferences"].get(
+                                genre,
+                                0
+                            ) + 1
                         )
 
 
@@ -138,16 +172,22 @@ class OfflineFeaturePipeline:
 
                 if isinstance(event, RatingEvent):
 
-                    item_average_rating = (
+                    user["average_rating"] = (
+                        self.rating_features.update(
+                            event.user_id,
+                            event.rating
+                        )
+                    )
+
+                    item["average_rating"] = (
                         self.item_rating_features.update(
                             event.movie_id,
                             event.rating
                         )
                     )
 
-                    item["average_rating"] = item_average_rating
 
-
+        # Preserve latest feature API.
         for user_id, features in user_features.items():
 
             total = sum(
@@ -158,9 +198,9 @@ class OfflineFeaturePipeline:
 
                 features["genre_preferences"] = {
                     genre: count / total
-                    for genre, count in features["genre_preferences"].items()
+                    for genre, count
+                    in features["genre_preferences"].items()
                 }
-
 
             self.feature_store.write_user_features(
                 user_id,

@@ -16,6 +16,11 @@ class DataLake(Service):
 
         kafka.subscribe(
             "DataLake",
+            "RecommendationShownEvent"
+        )
+
+        kafka.subscribe(
+            "DataLake",
             "RecommendationClickedEvent"
         )
 
@@ -34,6 +39,7 @@ class DataLake(Service):
         kafka = sim.get_service("Kafka")
 
         for topic in [
+            "RecommendationShownEvent",
             "RecommendationClickedEvent",
             "WatchEvent",
             "RatingEvent"

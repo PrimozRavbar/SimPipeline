@@ -1,6 +1,7 @@
 import random
 
 from simulation.events import (
+    RecommendationShownEvent,
     RecommendationClickedEvent,
     WatchEvent,
 )
@@ -15,13 +16,19 @@ class TrainingDatasetGenerator:
     ):
         self.feature_store = feature_store
         self.interactions = []
-        self.user_movies = {}
+        self.shown_recommendations = {}
         self.negative_samples = negative_samples
 
 
     def add_event(self, event, event_order):
 
-        if isinstance(event, RecommendationClickedEvent):
+        if isinstance(event, RecommendationShownEvent):
+
+            self.shown_recommendations[
+                event.recommendation_id
+            ] = event
+
+        elif isinstance(event, RecommendationClickedEvent):
 
             self.interactions.append({
                 "user_id": event.user_id,
@@ -31,11 +38,35 @@ class TrainingDatasetGenerator:
                 "event_order": event_order
             })
 
-            self.user_movies.setdefault(
-                event.user_id,
-                set()
-            ).add(event.movie_id)
+            shown = self.shown_recommendations.get(
+                event.recommendation_id
+            )
 
+            if shown is not None:
+
+                candidates = [
+                    movie_id
+                    for movie_id in shown.movie_ids
+                    if movie_id != event.movie_id
+                ]
+
+                sampled_negatives = random.sample(
+                    candidates,
+                    min(
+                        self.negative_samples,
+                        len(candidates)
+                    )
+                )
+
+                for movie_id in sampled_negatives:
+
+                    self.interactions.append({
+                        "user_id": event.user_id,
+                        "movie_id": movie_id,
+                        "label": 0,
+                        "timestamp": event.timestamp,
+                        "event_order": event_order
+                    })
 
         elif isinstance(event, WatchEvent):
 
@@ -47,59 +78,8 @@ class TrainingDatasetGenerator:
                 "event_order": event_order
             })
 
-            self.user_movies.setdefault(
-                event.user_id,
-                set()
-            ).add(event.movie_id)
-
-
-    def add_negative_samples(self):
-
-        all_movies = list(
-            self.feature_store.item_features.keys()
-        )
-
-        negatives = []
-
-        for interaction in self.interactions:
-
-            user_id = interaction["user_id"]
-
-            seen_movies = self.user_movies.get(
-                user_id,
-                set()
-            )
-
-            candidates = [
-                movie_id
-                for movie_id in all_movies
-                if movie_id not in seen_movies
-            ]
-
-            for _ in range(self.negative_samples):
-
-                if candidates:
-
-                    negative_movie = random.choice(
-                        candidates
-                    )
-
-                    negatives.append({
-                        "user_id": user_id,
-                        "movie_id": negative_movie,
-                        "label": 0,
-                        "timestamp": interaction["timestamp"],
-                        "event_order": interaction["event_order"]
-                    })
-
-        self.interactions.extend(
-            negatives
-        )
-
 
     def build(self):
-
-        self.add_negative_samples()
 
         random.shuffle(self.interactions)
 
@@ -130,6 +110,6 @@ class TrainingDatasetGenerator:
             })
 
         self.interactions = []
-        self.user_movies = {}
+        self.shown_recommendations = {}
 
         return dataset

@@ -7,6 +7,7 @@ from abc import ABC, abstractmethod
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 from world.external_data_loader import GENRE_NAMES
 
@@ -43,30 +44,48 @@ class SimpleUserTower(nn.Module, UserTower):
 
         for genre in genre_names:
             embedding.append(
-                genre_preferences.get(genre, 0.0)
+                float(genre_preferences.get(genre, 0.0))
             )
 
+        average_rating = max(
+            0.0,
+            min(
+                5.0,
+                float(user_features.get("average_rating", 0) or 0)
+            )
+        ) / 5.0
 
+        def normalize_count(value):
+            value = max(0.0, float(value or 0))
+            return float(
+                torch.tanh(
+                    torch.log1p(
+                        torch.tensor(value)
+                    )
+                )
+            )
+
+        embedding.append(average_rating)
         embedding.append(
-            user_features.get("average_rating", 0)
+            normalize_count(
+                user_features.get("activity_level", 0)
+            )
         )
-
         embedding.append(
-            user_features.get("activity_level", 0)
+            normalize_count(
+                user_features.get("watch_count", 0)
+            )
         )
-
         embedding.append(
-            user_features.get("watch_count", 0)
+            normalize_count(
+                user_features.get("user_click_counts", 0)
+            )
         )
-
         embedding.append(
-            user_features.get("user_click_counts", 0)
+            normalize_count(
+                user_features.get("interactions", 0)
+            )
         )
-
-        embedding.append(
-            user_features.get("interactions", 0)
-        )
-
 
         return torch.tensor(
             embedding,
@@ -92,8 +111,14 @@ class SimpleUserTower(nn.Module, UserTower):
 
         with torch.no_grad():
 
-            return self.encode(
+            embedding = self.encode(
                 user_features
+            )
+
+            return F.normalize(
+                embedding,
+                p=2,
+                dim=0
             ).tolist()
 
 
@@ -140,7 +165,6 @@ class SimpleItemTower(nn.Module, ItemTower):
             )
         )
 
-
         embedding = []
 
         movie_genres = set(
@@ -152,21 +176,44 @@ class SimpleItemTower(nn.Module, ItemTower):
                 1.0 if genre in movie_genres else 0.0
             )
 
+        average_rating = max(
+            0.0,
+            min(
+                5.0,
+                float(
+                    movie_features.get(
+                        "average_rating",
+                        0
+                    ) or 0
+                )
+            )
+        ) / 5.0
 
-        embedding.append(
-            movie_features["average_rating"]
+        popularity = max(
+            0.0,
+            float(
+                movie_features.get(
+                    "popularity",
+                    0
+                ) or 0
+            )
         )
 
-        embedding.append(
-            movie_features["popularity"]
+        popularity = float(
+            torch.tanh(
+                torch.log1p(
+                    torch.tensor(popularity)
+                )
+            )
         )
 
+        embedding.append(average_rating)
+        embedding.append(popularity)
 
         metadata_embedding = torch.tensor(
             embedding,
             dtype=torch.float32
         )
-
 
         return torch.cat(
             [
@@ -194,8 +241,14 @@ class SimpleItemTower(nn.Module, ItemTower):
 
         with torch.no_grad():
 
-            return self.encode(
+            embedding = self.encode(
                 movie_features
+            )
+
+            return F.normalize(
+                embedding,
+                p=2,
+                dim=0
             ).tolist()
 
 from simulation.events import RetrievalRequest

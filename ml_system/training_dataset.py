@@ -103,6 +103,12 @@ class TrainingDatasetGenerator:
                 )
             )
 
+            user_features = dict(user_features)
+            user_features["user_id"] = interaction["user_id"]
+
+            user_features = dict(user_features)
+            user_features["user_id"] = interaction["user_id"]
+
             dataset.append({
                 "user_features": user_features,
                 "item_features": item_features,

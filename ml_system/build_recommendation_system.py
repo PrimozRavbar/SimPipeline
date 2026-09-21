@@ -59,7 +59,9 @@ def build_recommendation_system(
     redis = Redis()
 
     retriever = TwoTowerRetrieval(
-        user_tower=SimpleUserTower(),
+        user_tower=SimpleUserTower(
+            num_users=len(user_objects)
+        ),
         item_tower=bootstrap_artifacts["item_tower"],
         ann_index=bootstrap_artifacts["hnsw_index"],
         redis=redis,
@@ -107,7 +109,9 @@ def build_recommendation_system(
     )
 
     two_tower_trainer = TwoTowerTrainer(
-        user_tower=SimpleUserTower(),
+        user_tower=SimpleUserTower(
+            num_users=len(user_objects)
+        ),
         item_tower=SimpleItemTower(
             num_movies=len(movie_objects)
         )

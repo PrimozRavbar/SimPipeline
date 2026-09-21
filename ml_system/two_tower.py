@@ -24,10 +24,15 @@ class UserTower(ABC):
 
 class SimpleUserTower(nn.Module, UserTower):
 
-    def __init__(self, embedding_dim=32):
+    def __init__(self, num_users, embedding_dim=32):
         super().__init__()
 
-        input_dim = len(genre_names) + 5
+        self.user_embedding = nn.Embedding(
+            num_users + 1,
+            16
+        )
+
+        input_dim = 16 + len(genre_names) + 5
 
         self.network = nn.Sequential(
             nn.Linear(input_dim, 64),
@@ -37,6 +42,15 @@ class SimpleUserTower(nn.Module, UserTower):
 
 
     def encode_features(self, user_features):
+
+        user_id = user_features["user_id"]
+
+        user_id_embedding = self.user_embedding(
+            torch.tensor(
+                user_id,
+                dtype=torch.long
+            )
+        )
 
         embedding = []
 
@@ -87,9 +101,16 @@ class SimpleUserTower(nn.Module, UserTower):
             )
         )
 
-        return torch.tensor(
+        metadata_embedding = torch.tensor(
             embedding,
             dtype=torch.float32
+        )
+
+        return torch.cat(
+            [
+                user_id_embedding,
+                metadata_embedding
+            ]
         )
 
 
@@ -476,6 +497,7 @@ class TwoTowerRetrieval(RetrievalService):
 
 
         user_features = {
+            "user_id": user_id,
             "genre_preferences": genre_preferences,
             "average_rating": average_rating,
             "activity_level": activity_level,

@@ -3,7 +3,6 @@ import random
 from simulation.events import (
     RecommendationShownEvent,
     RecommendationClickedEvent,
-    WatchEvent,
 )
 
 
@@ -30,50 +29,31 @@ class TrainingDatasetGenerator:
 
         elif isinstance(event, RecommendationClickedEvent):
 
-            self.interactions.append({
-                "user_id": event.user_id,
-                "movie_id": event.movie_id,
-                "label": 1,
-                "timestamp": event.timestamp,
-                "event_order": event_order
-            })
-
             shown = self.shown_recommendations.get(
                 event.recommendation_id
             )
 
-            if shown is not None:
+            if shown is None:
+                return
 
-                candidates = [
-                    movie_id
-                    for movie_id in shown.movie_ids
-                    if movie_id != event.movie_id
-                ]
+            candidates = [
+                movie_id
+                for movie_id in shown.movie_ids
+                if movie_id != event.movie_id
+            ]
 
-                sampled_negatives = random.sample(
-                    candidates,
-                    min(
-                        self.negative_samples,
-                        len(candidates)
-                    )
+            sampled_negatives = random.sample(
+                candidates,
+                min(
+                    self.negative_samples,
+                    len(candidates)
                 )
-
-                for movie_id in sampled_negatives:
-
-                    self.interactions.append({
-                        "user_id": event.user_id,
-                        "movie_id": movie_id,
-                        "label": 0,
-                        "timestamp": event.timestamp,
-                        "event_order": event_order
-                    })
-
-        elif isinstance(event, WatchEvent):
+            )
 
             self.interactions.append({
                 "user_id": event.user_id,
-                "movie_id": event.movie_id,
-                "label": 1,
+                "positive_movie_id": event.movie_id,
+                "negative_movie_ids": sampled_negatives,
                 "timestamp": event.timestamp,
                 "event_order": event_order
             })
@@ -95,24 +75,42 @@ class TrainingDatasetGenerator:
                 )
             )
 
-            item_features = (
+            if user_features is None:
+                continue
+
+            user_features = dict(user_features)
+            user_features["user_id"] = interaction["user_id"]
+
+            positive_features = (
                 self.feature_store.get_item_features_as_of(
-                    interaction["movie_id"],
+                    interaction["positive_movie_id"],
                     interaction["timestamp"],
                     interaction["event_order"]
                 )
             )
 
-            user_features = dict(user_features)
-            user_features["user_id"] = interaction["user_id"]
+            negative_features = []
 
-            user_features = dict(user_features)
-            user_features["user_id"] = interaction["user_id"]
+            for movie_id in interaction["negative_movie_ids"]:
+
+                features = (
+                    self.feature_store.get_item_features_as_of(
+                        movie_id,
+                        interaction["timestamp"],
+                        interaction["event_order"]
+                    )
+                )
+
+                if features is not None:
+                    negative_features.append(features)
+
+            if positive_features is None or not negative_features:
+                continue
 
             dataset.append({
                 "user_features": user_features,
-                "item_features": item_features,
-                "label": interaction["label"]
+                "positive_item_features": positive_features,
+                "negative_item_features": negative_features
             })
 
         self.interactions = []

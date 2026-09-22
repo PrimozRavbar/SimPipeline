@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 
 class TwoTowerTrainer:
@@ -9,21 +10,21 @@ class TwoTowerTrainer:
         user_tower,
         item_tower,
         learning_rate=0.001,
-        epochs=5
+        epochs=5,
+        temperature=0.1
     ):
 
         self.user_tower = user_tower
         self.item_tower = item_tower
 
         self.epochs = epochs
+        self.temperature = temperature
 
         self.optimizer = torch.optim.Adam(
             list(self.user_tower.parameters()) +
             list(self.item_tower.parameters()),
             lr=learning_rate
         )
-
-        self.loss_fn = nn.BCEWithLogitsLoss()
 
 
     def train(self, training_data):
@@ -43,25 +44,45 @@ class TwoTowerTrainer:
                     )
                 )
 
-                item_embedding = (
+                positive_embedding = (
                     self.item_tower.encode(
-                        example["item_features"]
+                        example["positive_item_features"]
                     )
                 )
 
-                score = torch.dot(
+                negative_embeddings = [
+                    self.item_tower.encode(features)
+                    for features in example["negative_item_features"]
+                ]
+
+                positive_score = torch.dot(
                     user_embedding,
-                    item_embedding
+                    positive_embedding
                 )
 
-                label = torch.tensor(
-                    example["label"],
-                    dtype=torch.float32
+                negative_scores = torch.stack([
+                    torch.dot(
+                        user_embedding,
+                        negative_embedding
+                    )
+                    for negative_embedding in negative_embeddings
+                ])
+
+                scores = torch.cat([
+                    positive_score.unsqueeze(0),
+                    negative_scores
+                ])
+
+                logits = scores / self.temperature
+
+                target = torch.tensor(
+                    0,
+                    dtype=torch.long
                 )
 
-                loss = self.loss_fn(
-                    score,
-                    label
+                loss = F.cross_entropy(
+                    logits.unsqueeze(0),
+                    target.unsqueeze(0)
                 )
 
                 self.optimizer.zero_grad()

@@ -1,5 +1,4 @@
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
 
 
@@ -11,7 +10,8 @@ class TwoTowerTrainer:
         item_tower,
         learning_rate=0.001,
         epochs=5,
-        temperature=0.1
+        temperature=0.1,
+        batch_size=32
     ):
 
         self.user_tower = user_tower
@@ -19,6 +19,7 @@ class TwoTowerTrainer:
 
         self.epochs = epochs
         self.temperature = temperature
+        self.batch_size = batch_size
 
         self.optimizer = torch.optim.Adam(
             list(self.user_tower.parameters()) +
@@ -35,72 +36,97 @@ class TwoTowerTrainer:
         for epoch in range(self.epochs):
 
             total_loss = 0
+            batch_count = 0
 
-            for example in training_data:
+            for start in range(
+                0,
+                len(training_data),
+                self.batch_size
+            ):
 
-                user_embedding = (
+                batch = training_data[
+                    start:start + self.batch_size
+                ]
+
+                user_embeddings = torch.stack([
                     self.user_tower.encode(
                         example["user_features"]
                     )
-                )
+                    for example in batch
+                ])
 
-                positive_embedding = (
+                positive_embeddings = torch.stack([
                     self.item_tower.encode(
                         example["positive_item_features"]
                     )
+                    for example in batch
+                ])
+
+                positive_scores = (
+                    user_embeddings
+                    @ positive_embeddings.T
                 )
 
-                negative_embeddings = [
-                    self.item_tower.encode(features)
-                    for features in example["negative_item_features"]
-                ]
+                losses = []
 
-                positive_score = torch.dot(
-                    user_embedding,
-                    positive_embedding
-                )
+                for i, example in enumerate(batch):
 
-                negative_scores = torch.stack([
-                    torch.dot(
-                        user_embedding,
-                        negative_embedding
+                    positive_score = positive_scores[i, i]
+
+                    sampled_negative_embeddings = torch.stack([
+                        self.item_tower.encode(features)
+                        for features in
+                        example["negative_item_features"]
+                    ])
+
+                    sampled_negative_scores = (
+                        user_embeddings[i]
+                        @ sampled_negative_embeddings.T
                     )
-                    for negative_embedding in negative_embeddings
-                ])
 
-                scores = torch.cat([
-                    positive_score.unsqueeze(0),
-                    negative_scores
-                ])
+                    in_batch_negative_scores = torch.cat([
+                        positive_scores[i, :i],
+                        positive_scores[i, i + 1:]
+                    ])
 
-                logits = scores / self.temperature
+                    scores = torch.cat([
+                        positive_score.unsqueeze(0),
+                        sampled_negative_scores,
+                        in_batch_negative_scores
+                    ])
 
-                target = torch.tensor(
-                    0,
-                    dtype=torch.long
-                )
+                    logits = (
+                        scores /
+                        self.temperature
+                    )
 
-                loss = F.cross_entropy(
-                    logits.unsqueeze(0),
-                    target.unsqueeze(0)
-                )
+                    target = torch.zeros(
+                        1,
+                        dtype=torch.long
+                    )
+
+                    loss = F.cross_entropy(
+                        logits.unsqueeze(0),
+                        target
+                    )
+
+                    losses.append(loss)
+
+                loss = torch.stack(losses).mean()
 
                 self.optimizer.zero_grad()
-
                 loss.backward()
-
                 self.optimizer.step()
 
                 total_loss += loss.item()
-
+                batch_count += 1
 
             print(
                 "epoch:",
                 epoch + 1,
                 "loss:",
-                total_loss / len(training_data)
+                total_loss / batch_count
             )
-
 
         return (
             self.user_tower,

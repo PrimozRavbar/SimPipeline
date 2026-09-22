@@ -49,15 +49,23 @@ class TwoTowerTrainer:
                 ]
 
                 user_embeddings = torch.stack([
-                    self.user_tower.encode(
-                        example["user_features"]
+                    F.normalize(
+                        self.user_tower.encode(
+                            example["user_features"]
+                        ),
+                        p=2,
+                        dim=0
                     )
                     for example in batch
                 ])
 
                 positive_embeddings = torch.stack([
-                    self.item_tower.encode(
-                        example["positive_item_features"]
+                    F.normalize(
+                        self.item_tower.encode(
+                            example["positive_item_features"]
+                        ),
+                        p=2,
+                        dim=0
                     )
                     for example in batch
                 ])
@@ -74,7 +82,11 @@ class TwoTowerTrainer:
                     positive_score = positive_scores[i, i]
 
                     sampled_negative_embeddings = torch.stack([
-                        self.item_tower.encode(features)
+                        F.normalize(
+                            self.item_tower.encode(features),
+                            p=2,
+                            dim=0
+                        )
                         for features in
                         example["negative_item_features"]
                     ])

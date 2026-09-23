@@ -4,7 +4,7 @@
 
 The project is being developed toward a **gamified ML systems learning platform** where users build ML systems from interchangeable production components, operate them under realistic conditions, diagnose failures and performance problems, and see the effects of their decisions through system and business metrics.
 
-The long-term goal is not a single recommendation-system simulator. SimPipeline is designed around reusable components that can support different ML systems, including recommendation, fraud detection, and other production ML workloads.
+The long-term goal is to simulate various ML systems. Thus SimPipeline is designed around reusable components that can support different ML systems, including recommendation, fraud detection, and other production ML workloads.
 
 ## Current State
 

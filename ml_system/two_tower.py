@@ -35,7 +35,9 @@ class SimpleUserTower(nn.Module, UserTower):
         input_dim = 16 + len(genre_names) + 5
 
         self.network = nn.Sequential(
-            nn.Linear(input_dim, 64),
+            nn.Linear(input_dim, 128),
+            nn.ReLU(),
+            nn.Linear(128, 64),
             nn.ReLU(),
             nn.Linear(64, embedding_dim)
         )
@@ -169,7 +171,9 @@ class SimpleItemTower(nn.Module, ItemTower):
         input_dim = 16 + len(genre_names) + 2
 
         self.network = nn.Sequential(
-            nn.Linear(input_dim, 64),
+            nn.Linear(input_dim, 128),
+            nn.ReLU(),
+            nn.Linear(128, 64),
             nn.ReLU(),
             nn.Linear(64, embedding_dim)
         )

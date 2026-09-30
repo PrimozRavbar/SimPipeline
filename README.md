@@ -8,6 +8,8 @@ The long-term goal is to simulate various ML systems. Thus SimPipeline is design
 
 ## Current State
 
+Please run the DEMO notebook. You can simulate the world and the recommendation system ML pipeline receiving data from the world (clicks and views of the movies). The recommendations are also simulated at each time-step. This data will populate the datalake. Now you can run Spark to compute the offline features, and then train the Two-Tower model on them. Finally you can get the basic training quality metrics such as Recall@20. Now you have run the first simulation. After that you can keep running in for longer, re-training the model, etc, until the metric improves. Without the ranker and the re-ranker components implemented, a good result is about 60% Recall@20.
+
 The current implementation is a **basic end-to-end recommendation system simulation**.
 
 It already models the core production loop:

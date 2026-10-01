@@ -146,8 +146,6 @@ class UserSimulator:
             k=1
         )[0]
 
-        print(f"User {user.user_id} clicked {selected_movie}")
-
         return RecommendationClickedEvent(
             timestamp=sim.clock.now,
             user_id=user.user_id,

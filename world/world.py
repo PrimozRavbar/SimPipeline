@@ -28,7 +28,6 @@ class World(Service):
 
 
     def process(self, sim):
-        print("World processing")
 
         active_users = self.sample_active_users(sim)
 

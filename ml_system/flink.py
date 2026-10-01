@@ -254,10 +254,5 @@ class Flink(Service):
             })
 
 
-            print(
-                "FINAL GENRE PREF",
-                user_id,
-                genre_preferences
-            )
 
 

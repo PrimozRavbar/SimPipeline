@@ -27,6 +27,8 @@ class Simulator:
         self.random = random.Random(42)
 
         self.running = False
+        self.event_count = 0
+        self.event_counts = {}
 
     #def register(self, service):
       #  self.services[service.name] = service
@@ -47,7 +49,12 @@ class Simulator:
     """
     def publish(self, event):
 
-        print(event)
+        self.event_count += 1
+
+        event_type = type(event).__name__
+        self.event_counts[event_type] = (
+            self.event_counts.get(event_type, 0) + 1
+        )
 
         kafka = self.get_service("Kafka")
 
@@ -67,15 +74,30 @@ class Simulator:
     def run(self, ticks=None):
 
         self.running = True
+        steps = 0
 
         while self.running:
 
             self.tick()
+            steps += 1
+
+            if steps % 100 == 0:
+                counts = " | ".join(
+                    f"{name}: {count}"
+                    for name, count in self.event_counts.items()
+                )
+
+                print(
+                    f"\rSteps: {steps} | Events: {self.event_count} | {counts}",
+                    end=""
+                )
 
             if ticks is not None:
                 ticks -= 1
                 if ticks == 0:
                     break
+
+        print()
 
     def stop(self):
         self.running = False

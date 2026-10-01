@@ -1,5 +1,7 @@
 from enum import Enum
 
+from ml_system.spark_sim.task import TaskState
+
 
 class ExecutorState(Enum):
     IDLE = "IDLE"
@@ -18,7 +20,6 @@ class Executor:
     ):
         self.executor_id = executor_id
 
-        # Abstracted resources.
         self.cores = cores
         self.memory = memory
 
@@ -70,9 +71,9 @@ class Executor:
             f"Started task {task.task_id}"
         )
 
-        task.execute()
+        task.execute(clock)
 
-        if task.state.value == "SUCCEEDED":
+        if task.state == TaskState.SUCCEEDED:
 
             self.metrics["tasks_succeeded"] += 1
 
@@ -80,15 +81,13 @@ class Executor:
                 f"Task {task.task_id} succeeded"
             )
 
-        else:
+        elif task.state == TaskState.FAILED:
 
             self.metrics["tasks_failed"] += 1
 
             self.log(
                 f"Task {task.task_id} failed"
             )
-
-        task.end_time = clock.now
 
         self.current_task = None
         self.state = ExecutorState.IDLE

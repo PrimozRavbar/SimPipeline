@@ -1,5 +1,7 @@
 from enum import Enum
 
+from ml_system.spark_sim.task import TaskState
+
 
 class TaskSchedulerState(Enum):
     IDLE = "IDLE"
@@ -73,13 +75,12 @@ class TaskScheduler:
             if not self.pending_tasks:
                 break
 
-            if not executor.can_run(
-                self.pending_tasks[0]
-            ):
+            task = self.pending_tasks[0]
+
+            if not executor.can_run(task):
                 continue
 
-            task = self.pending_tasks.pop(0)
-
+            self.pending_tasks.pop(0)
             self.running_tasks.append(task)
 
             self.metrics["tasks_started"] += 1
@@ -91,17 +92,33 @@ class TaskScheduler:
 
             self.running_tasks.remove(task)
 
-            if task.state.value == "SUCCEEDED":
+            if task.state == TaskState.SUCCEEDED:
 
-                self.completed_tasks.append(task)
+                self.task_completed(task)
 
-                self.metrics["tasks_completed"] += 1
+            elif task.state == TaskState.FAILED:
 
-            else:
+                self.task_failed(task)
 
-                self.failed_tasks.append(task)
+    def task_completed(self, task):
 
-                self.metrics["tasks_failed"] += 1
+        self.completed_tasks.append(task)
+
+        self.metrics["tasks_completed"] += 1
+
+        self.log(
+            f"Task {task.task_id} completed"
+        )
+
+    def task_failed(self, task):
+
+        self.failed_tasks.append(task)
+
+        self.metrics["tasks_failed"] += 1
+
+        self.log(
+            f"Task {task.task_id} failed"
+        )
 
     def stop(self):
 

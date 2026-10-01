@@ -1,5 +1,7 @@
 from enum import Enum
 
+from ml_system.spark_sim.stage import StageState
+
 
 class JobState(Enum):
     PENDING = "PENDING"
@@ -46,6 +48,68 @@ class SparkJob:
             f"Stage {stage.stage_id} added to job {self.job_id}"
         )
 
+    def start_stage(self, stage):
+
+        if self.state != JobState.RUNNING:
+            raise RuntimeError(
+                f"Cannot start stage while job is "
+                f"in state {self.state.value}"
+            )
+
+        if stage not in self.stages:
+            raise RuntimeError(
+                f"Stage {stage.stage_id} does not belong "
+                f"to job {self.job_id}"
+            )
+
+        self.current_stage = stage
+
+    def complete_stage(self, stage):
+
+        if stage not in self.stages:
+            raise RuntimeError(
+                f"Stage {stage.stage_id} does not belong "
+                f"to job {self.job_id}"
+            )
+
+        if stage.state != StageState.SUCCEEDED:
+            raise RuntimeError(
+                f"Cannot complete stage {stage.stage_id} "
+                f"because stage is in state {stage.state.value}"
+            )
+
+        self.metrics["stages_succeeded"] += 1
+
+        self.log(
+            f"Stage {stage.stage_id} completed"
+        )
+
+        if self.current_stage is stage:
+            self.current_stage = None
+
+    def fail_stage(self, stage):
+
+        if stage not in self.stages:
+            raise RuntimeError(
+                f"Stage {stage.stage_id} does not belong "
+                f"to job {self.job_id}"
+            )
+
+        if stage.state != StageState.FAILED:
+            raise RuntimeError(
+                f"Cannot fail stage {stage.stage_id} "
+                f"because stage is in state {stage.state.value}"
+            )
+
+        self.metrics["stages_failed"] += 1
+
+        self.log(
+            f"Stage {stage.stage_id} failed"
+        )
+
+        if self.current_stage is stage:
+            self.current_stage = None
+
     def start(self, clock):
 
         if self.state != JobState.PENDING:
@@ -62,6 +126,26 @@ class SparkJob:
 
     def complete(self, clock):
 
+        if self.state != JobState.RUNNING:
+            raise RuntimeError(
+                f"Cannot complete job in state {self.state.value}"
+            )
+
+        if not self.stages:
+            raise RuntimeError(
+                f"Cannot complete job {self.job_id} "
+                "without stages"
+            )
+
+        if any(
+            stage.state != StageState.SUCCEEDED
+            for stage in self.stages
+        ):
+            raise RuntimeError(
+                f"Cannot complete job {self.job_id}: "
+                "not all stages succeeded"
+            )
+
         self.state = JobState.SUCCEEDED
         self.end_time = clock.now
 
@@ -70,6 +154,11 @@ class SparkJob:
         )
 
     def fail(self, clock, error):
+
+        if self.state != JobState.RUNNING:
+            raise RuntimeError(
+                f"Cannot fail job in state {self.state.value}"
+            )
 
         self.state = JobState.FAILED
         self.end_time = clock.now

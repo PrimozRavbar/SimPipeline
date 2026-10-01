@@ -113,31 +113,48 @@ class Spark(Service):
             )
 
         job.start(self.sim.clock)
+        job.start_stage(stage)
+
         stage.start(self.sim.clock)
+        stage.start_task(task)
 
         self.task_scheduler.submit(task)
         self.task_scheduler.schedule(self.sim.clock)
 
-        if task.state.value == "SUCCEEDED":
+        if task in self.task_scheduler.completed_tasks:
 
+            stage.complete_task(task)
             stage.complete(self.sim.clock)
+
+            job.complete_stage(stage)
             job.complete(self.sim.clock)
+
             self.scheduler.complete(job)
             driver.complete_job(job)
 
-            self.application.metrics["jobs_succeeded"] += 1
+            self.application.complete_job(job)
             self.application.complete(self.sim.clock)
 
-        else:
+        elif task in self.task_scheduler.failed_tasks:
 
             error = task.error
 
+            stage.fail_task(task)
             stage.fail(self.sim.clock, error)
+
+            job.fail_stage(stage)
             job.fail(self.sim.clock, error)
+
             self.scheduler.fail(job)
             driver.fail_job(job)
 
-            self.application.metrics["jobs_failed"] += 1
+            self.application.fail_job(job, error)
             self.application.fail(self.sim.clock, error)
 
             raise error
+
+        else:
+
+            raise RuntimeError(
+                f"Task {task.task_id} has no terminal outcome"
+            )

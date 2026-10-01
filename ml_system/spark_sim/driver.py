@@ -47,6 +47,7 @@ class Driver:
             )
 
         self.jobs.append(job)
+        self.current_job = job
 
         self.metrics["jobs_submitted"] += 1
 

@@ -41,6 +41,11 @@ class SparkTask:
 
     def assign_executor(self, executor):
 
+        if self.executor is not None:
+            raise RuntimeError(
+                f"Task {self.task_id} already has an executor"
+            )
+
         self.executor = executor
 
         self.log(
@@ -70,7 +75,7 @@ class SparkTask:
             f"{self.attempt} started at tick {clock.now}"
         )
 
-    def execute(self):
+    def execute(self, clock):
 
         if self.state != TaskState.RUNNING:
             raise RuntimeError(
@@ -79,32 +84,31 @@ class SparkTask:
 
         try:
             self.result = self.work()
-
-            self.state = TaskState.SUCCEEDED
-
-            self.log(
-                f"Task {self.task_id} succeeded"
-            )
+            self.complete(clock)
 
         except Exception as error:
-
-            self.error = error
-            self.state = TaskState.FAILED
-
-            self.log(
-                f"Task {self.task_id} failed: {error}"
-            )
+            self.fail(clock, error)
 
     def complete(self, clock):
 
-        if self.state != TaskState.SUCCEEDED:
+        if self.state != TaskState.RUNNING:
             raise RuntimeError(
                 f"Cannot complete task in state {self.state.value}"
             )
 
+        self.state = TaskState.SUCCEEDED
         self.end_time = clock.now
 
+        self.log(
+            f"Task {self.task_id} succeeded"
+        )
+
     def fail(self, clock, error=None):
+
+        if self.state != TaskState.RUNNING:
+            raise RuntimeError(
+                f"Cannot fail task in state {self.state.value}"
+            )
 
         self.state = TaskState.FAILED
         self.end_time = clock.now
@@ -113,7 +117,7 @@ class SparkTask:
             self.error = error
 
         self.log(
-            f"Task {self.task_id} failed"
+            f"Task {self.task_id} failed: {self.error}"
         )
 
     def log(self, message):
